@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+packages/*/dist/
+packages/*/.turbo/
+
+# Turbo cache
+.turbo/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Runtime data (user sandboxes & DB — never commit)
+.tsandbox/
+.mocktool/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*

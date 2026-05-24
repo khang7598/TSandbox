@@ -1,0 +1,36 @@
+import { buildServer } from './server.js'
+import { config } from './config.js'
+import { loadExistingSandboxes, startWatcher } from './runtime/hot-reload.js'
+import fs from 'node:fs'
+
+async function main() {
+  // Ensure sandboxes directory exists
+  fs.mkdirSync(config.sandboxesDir, { recursive: true })
+
+  const app = await buildServer()
+
+  // Load existing sandbox files into the registry on startup
+  await loadExistingSandboxes(config.sandboxesDir)
+
+  // Start file watcher for live hot reload
+  startWatcher(config.sandboxesDir)
+
+  // Start server
+  await app.listen({ port: config.port, host: config.host })
+
+  console.log(`
+╔══════════════════════════════════════════════════════╗
+║             TSandbox API Sandbox Platform            ║
+╠══════════════════════════════════════════════════════╣
+║  Mock server  →  http://localhost:${config.port}             ║
+║  Management   →  http://localhost:${config.port}/_api        ║
+║  WebSocket    →  ws://localhost:${config.port}/_ws           ║
+║  Sandboxes    →  ${config.sandboxesDir.padEnd(36)} ║
+╚══════════════════════════════════════════════════════╝
+  `)
+}
+
+main().catch((err) => {
+  console.error('[fatal]', err)
+  process.exit(1)
+})
