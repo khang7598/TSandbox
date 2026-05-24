@@ -1,0 +1,17 @@
+services:
+  tsandbox:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - tsandbox_data:/data
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      DB_PATH: /data/tsandbox.db
+      SANDBOXES_DIR: /data/sandboxes
+      CORS_ORIGINS: "https://your-frontend.example.com"
+    restart: unless-stopped
+
+volumes:
+  tsandbox_data:

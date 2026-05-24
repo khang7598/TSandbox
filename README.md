@@ -395,68 +395,7 @@ If you need data from an external source, seed it into `state` via the State Ins
 
 TSandbox uses native Node.js addons (`isolated-vm`, `better-sqlite3`) that must compile against a specific Node.js version. Use `node:20-slim` — avoid Alpine (musl libc breaks native addons).
 
-**`Dockerfile`**
-
-```dockerfile
-FROM node:20-slim AS base
-RUN npm i -g pnpm
-
-# ── Build stage ──────────────────────────────────────────────────────
-FROM base AS builder
-WORKDIR /app
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-COPY packages/sdk/package.json        packages/sdk/
-COPY packages/backend/package.json    packages/backend/
-COPY packages/frontend/package.json   packages/frontend/
-RUN pnpm install --frozen-lockfile
-
-COPY . .
-RUN pnpm build
-
-# ── Runtime stage ────────────────────────────────────────────────────
-FROM node:20-slim
-RUN npm i -g pnpm
-WORKDIR /app
-
-COPY --from=builder /app/packages/backend/dist     packages/backend/dist
-COPY --from=builder /app/packages/backend/package.json packages/backend/
-COPY --from=builder /app/packages/frontend/dist    packages/frontend/dist
-COPY --from=builder /app/node_modules              node_modules
-COPY --from=builder /app/packages/backend/node_modules packages/backend/node_modules
-COPY package.json ./
-
-EXPOSE 3001
-VOLUME ["/data"]
-
-ENV NODE_ENV=production
-ENV PORT=3001
-ENV DB_PATH=/data/tsandbox.db
-ENV SANDBOXES_DIR=/data/sandboxes
-
-CMD ["node", "packages/backend/dist/index.js"]
-```
-
-**`docker-compose.yml`**
-
-```yaml
-services:
-  mocktool:
-    build: .
-    ports:
-      - "3001:3001"
-    volumes:
-      - tsandbox_data:/data
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      DB_PATH: /data/tsandbox.db
-      SANDBOXES_DIR: /data/sandboxes
-      CORS_ORIGINS: "https://your-frontend.example.com"
-    restart: unless-stopped
-
-volumes:
-  tsandbox_data:
-```
+A [`Dockerfile`](./Dockerfile) and [`docker-compose.yml`](./docker-compose.yml) are included at the repo root.
 
 ```bash
 docker compose up -d
