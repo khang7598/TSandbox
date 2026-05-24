@@ -2,6 +2,8 @@
 
 TSandbox is a programmable API sandbox platform. Instead of static JSON fixtures, you write TypeScript handlers that run live in isolated sandboxes — with hot reload, request history, runtime logs, and shared state.
 
+![TSandbox UI](./docs/screenshot.png)
+
 ---
 
 ## Getting Started
