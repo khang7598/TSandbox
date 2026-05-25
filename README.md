@@ -118,6 +118,44 @@ After import, each generated file is fully editable — treat it as a starting p
 
 ---
 
+## Exporting and Importing Sandboxes
+
+Sandboxes can be exported as a `.zip` file and imported on any other TSandbox instance — the primary way to move a sandbox to a new server.
+
+### Export
+
+Hover over a sandbox name in the sidebar and click the **↓** (Download) icon. The browser downloads a ZIP containing:
+
+```
+sandbox.json          # name and description
+data.ts               # all source files at their original paths
+routes/users.ts
+routes/payments/charge.ts
+...
+```
+
+Or via the API:
+
+```bash
+curl -o my-sandbox.zip http://localhost:3001/_api/sandboxes/{id}/export
+```
+
+### Import
+
+Click the **↑** (Upload) icon in the **Sandboxes** header, then drop a `.zip` file into the dialog or click to browse. A new sandbox is created with a fresh ID and all routes are immediately hot-reloaded.
+
+Or via the API:
+
+```bash
+curl -X POST http://localhost:3001/_api/sandboxes/import \
+  -F "file=@my-sandbox.zip"
+```
+
+**What is included:** all source `.ts` files and the sandbox name/description.  
+**What is not included:** request history and in-memory state (both are environment-specific and not meaningful to migrate).
+
+---
+
 ## Methods
 
 ```typescript
