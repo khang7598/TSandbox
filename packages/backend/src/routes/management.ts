@@ -46,6 +46,7 @@ import { processFileChange, loadSandboxFiles } from '../runtime/hot-reload.js'
 import { config } from '../config.js'
 import { compileSource } from '../runtime/compiler.js'
 import { parseSpec, generateMocks } from '../openapi/generator.js'
+import { exportSandbox, importSandbox } from '../sandbox/transfer.js'
 
 export async function managementPlugin(app: FastifyInstance): Promise<void> {
   // ── Sandboxes ────────────────────────────────────────────────────────────────
@@ -298,6 +299,36 @@ export async function managementPlugin(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string }
     resetSandboxState(id)
     return reply.status(204).send()
+  })
+
+  // ── Sandbox export / import ───────────────────────────────────────────────────
+
+  app.get('/_api/sandboxes/:id/export', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const row = queries.getSandbox.get(id) as SandboxRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Sandbox not found' })
+
+    const zipBuffer = await exportSandbox(id)
+    const filename = `${row.name.replace(/[^a-z0-9-]/gi, '_')}.zip`
+
+    return reply
+      .header('Content-Type', 'application/zip')
+      .header('Content-Disposition', `attachment; filename="${filename}"`)
+      .send(zipBuffer)
+  })
+
+  app.post('/_api/sandboxes/import', async (request, reply) => {
+    const data = await request.file({ limits: { fileSize: 50 * 1024 * 1024 } })
+    if (!data) return reply.status(400).send({ error: 'No file uploaded' })
+
+    const buffer = await data.toBuffer()
+
+    try {
+      const sandbox = await importSandbox(buffer)
+      return reply.status(201).send(sandbox)
+    } catch (e) {
+      return reply.status(400).send({ error: String(e) })
+    }
   })
 
   // ── OpenAPI import ────────────────────────────────────────────────────────────

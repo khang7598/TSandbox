@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
-import { Plus, Box, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Upload, Download, Box, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import clsx from 'clsx'
 import { useSandboxes, useFileTree, useDeleteSandbox, useUpdateSandbox } from '@/api/mocks'
 import { useAppStore } from '@/store'
 import CreateSandboxModal from '../CreateSandboxModal'
+import ImportSandboxModal from '../ImportSandboxModal'
 import FileTree from '../FileTree/FileTree'
 import Button from '../ui/Button'
 
 export default function SandboxSidebar() {
   const [createOpen, setCreateOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const { data: sandboxes, isLoading } = useSandboxes()
   const activeSandboxId = useAppStore((s) => s.activeSandboxId)
   const setActiveSandboxId = useAppStore((s) => s.setActiveSandboxId)
@@ -68,9 +70,14 @@ export default function SandboxSidebar() {
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           Sandboxes
         </span>
-        <Button variant="ghost" size="sm" onClick={() => setCreateOpen(true)} className="p-1" title="New sandbox">
-          <Plus size={13} />
-        </Button>
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)} className="p-1" title="Import sandbox (.zip)">
+            <Upload size={13} />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setCreateOpen(true)} className="p-1" title="New sandbox">
+            <Plus size={13} />
+          </Button>
+        </div>
       </div>
 
       {/* Sandbox list */}
@@ -125,6 +132,15 @@ export default function SandboxSidebar() {
 
             {renamingId !== sandbox.id && (
               <span className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                <a
+                  title="Export sandbox"
+                  href={`/_api/sandboxes/${sandbox.id}/export`}
+                  download={`${sandbox.name}.zip`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="p-0.5 rounded hover:bg-slate-600 text-slate-400 hover:text-slate-200 flex items-center"
+                >
+                  <Download size={11} />
+                </a>
                 <button
                   title="Rename"
                   onClick={(e) => startRename(sandbox.id, sandbox.name, e)}
@@ -161,6 +177,7 @@ export default function SandboxSidebar() {
       )}
 
       <CreateSandboxModal isOpen={createOpen} onClose={() => setCreateOpen(false)} />
+      <ImportSandboxModal isOpen={importOpen} onClose={() => setImportOpen(false)} />
     </div>
   )
 }

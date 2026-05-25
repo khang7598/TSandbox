@@ -216,6 +216,25 @@ export function useResetState() {
   })
 }
 
+// --- Sandbox export / import ---
+
+export function useImportSandbox() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await client.post('/sandboxes/import', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return res.data as Sandbox
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sandboxes'] })
+    },
+  })
+}
+
 // --- OpenAPI import ---
 
 export function useImportOpenApi() {
