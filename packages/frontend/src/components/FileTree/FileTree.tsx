@@ -7,7 +7,7 @@ import {
   FileCode,
   File,
   Plus,
-  Upload,
+  FileJson,
   Trash2,
   Pencil,
 } from 'lucide-react'
@@ -299,7 +299,7 @@ export default function FileTree({ nodes, sandboxId }: FileTreeProps) {
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Files</span>
         <div className="flex items-center gap-0.5">
           <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)} className="p-1" title="Import OpenAPI spec">
-            <Upload size={13} />
+            <FileJson size={13} />
           </Button>
           <Button variant="ghost" size="sm" onClick={() => setNewFileOpen(true)} className="p-1" title="New file">
             <Plus size={13} />
