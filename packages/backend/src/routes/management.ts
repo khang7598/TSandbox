@@ -45,6 +45,7 @@ import { getSandboxState, resetSandboxState, setSandboxState } from '../runtime/
 import { processFileChange, loadSandboxFiles } from '../runtime/hot-reload.js'
 import { config } from '../config.js'
 import { compileSource } from '../runtime/compiler.js'
+import { parseSpec, generateMocks } from '../openapi/generator.js'
 
 export async function managementPlugin(app: FastifyInstance): Promise<void> {
   // ── Sandboxes ────────────────────────────────────────────────────────────────
@@ -297,6 +298,44 @@ export async function managementPlugin(app: FastifyInstance): Promise<void> {
     const { id } = request.params as { id: string }
     resetSandboxState(id)
     return reply.status(204).send()
+  })
+
+  // ── OpenAPI import ────────────────────────────────────────────────────────────
+
+  app.post('/_api/sandboxes/:id/import/openapi', async (request, reply) => {
+    const { id } = request.params as { id: string }
+    const row = queries.getSandbox.get(id) as SandboxRow | undefined
+    if (!row) return reply.status(404).send({ error: 'Sandbox not found' })
+
+    const { spec } = request.body as { spec?: string }
+    if (!spec || typeof spec !== 'string') {
+      return reply.status(400).send({ error: 'spec is required (JSON or YAML string)' })
+    }
+
+    let parsed: unknown
+    try {
+      parsed = parseSpec(spec)
+    } catch (e) {
+      return reply.status(400).send({ error: `Failed to parse spec: ${e}` })
+    }
+
+    let result: ReturnType<typeof generateMocks>
+    try {
+      result = generateMocks(parsed)
+    } catch (e) {
+      return reply.status(400).send({ error: `Failed to generate mocks: ${e}` })
+    }
+
+    const created: string[] = []
+    for (const file of result.files) {
+      const filePath = safePath(id, file.relativePath)
+      await fs.mkdir(path.dirname(filePath), { recursive: true })
+      await fs.writeFile(filePath, file.content, 'utf8')
+      await processFileChange({ type: 'add', filePath, sandboxId: id })
+      created.push(file.relativePath)
+    }
+
+    return reply.send({ files: created, count: created.length, warnings: result.warnings })
   })
 
   // ── Reload ─────────────────────────────────────────────────────────────────────

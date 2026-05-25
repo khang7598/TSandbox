@@ -97,6 +97,27 @@ esbuild bundles local imports automatically — no build step or configuration n
 
 ---
 
+## Importing from an OpenAPI Spec
+
+Click the **↑** icon in the **Files** section header to import an OpenAPI 3.x spec. Paste JSON or YAML — one `defineMock()` file is generated per operation, grouped by tag or first path segment.
+
+Generated handlers include:
+
+- **Response shapes** inferred from the `200`/`201` response schema (with example values where provided)
+- **Body validation** for operations with `required` request body fields — returns a `400` automatically if fields are missing
+- **Multi-response simulation** via `?__status=<code>` — trigger any error branch defined in the spec without touching code:
+
+```bash
+curl "http://localhost:3001/orders?__status=422"   # triggers 422 branch
+curl "http://localhost:3001/users/99?__status=404" # triggers 404 branch
+```
+
+- **SSE stubs** for `text/event-stream` endpoints — returns a well-formed SSE payload using `sse()`
+
+After import, each generated file is fully editable — treat it as a starting point, not a locked artifact.
+
+---
+
 ## Methods
 
 ```typescript
@@ -155,20 +176,12 @@ return forbidden()                     // 403
 return serverError()                   // 500
 ```
 
-### Custom status + headers
+### Custom status
 
 ```typescript
 return json({ created: true }, 201)
-
-return ok({ data: 'value' }, {
-  headers: { 'x-request-id': 'abc123' },
-})
-```
-
-### Error with message
-
-```typescript
 return error('Validation failed', 422)
+return error('Rate limit exceeded', 429, { retryAfter: 60 })
 ```
 
 ### Redirect
@@ -186,6 +199,29 @@ return xml('<users><user id="1"/></users>')
 return soapResponse('<ns:Result>ok</ns:Result>')
 return soapFault('Client', 'Invalid input')
 ```
+
+### Server-Sent Events
+
+Returns a well-formed SSE body with the correct `text/event-stream` headers. All events are delivered in a single response — suitable for mocking clients that consume SSE streams.
+
+```typescript
+import { defineMock, sse } from '@tsandbox/sdk'
+
+export default defineMock({
+  method: 'GET',
+  path: '/events',
+
+  async handler() {
+    return sse([
+      { event: 'connected', data: { sessionId: 'abc123' } },
+      { event: 'message',   data: { type: 'update', id: '1' } },
+      { event: 'message',   data: { type: 'update', id: '2' } },
+    ])
+  },
+})
+```
+
+Each event accepts `data` (required), `event` (event name), and `id` (event id). Objects are JSON-serialised automatically.
 
 ---
 
@@ -217,9 +253,8 @@ export default defineMock({
   path: '/payments/charge',
 
   async handler({ body }) {
-    // Fail 20% of the time
-    return randomFailure(0.2, serverError('Payment gateway timeout'))
-      ?? ok({ charged: true, amount: (body as { amount: number }).amount })
+    const success = ok({ charged: true })
+    return randomFailure(success, 0.2, serverError('Payment gateway timeout'))
   },
 })
 ```
@@ -267,22 +302,19 @@ export default defineMock({
       const item = body as Item
       store[item.id] = item
       state.items = store
-      logger.info('item created', { id: item.id })
-      return ok(item, { status: 201 })
+      return ok(item, 201)
     }
 
     if (method === 'PUT') {
       if (!store[params.id]) return notFound()
       store[params.id] = { ...store[params.id], ...(body as Partial<Item>) }
       state.items = store
-      logger.info('item updated', { id: params.id })
       return ok(store[params.id])
     }
 
     if (method === 'DELETE') {
       delete store[params.id]
       state.items = store
-      logger.info('item deleted', { id: params.id })
       return noContent()
     }
   },
@@ -295,7 +327,6 @@ export default defineMock({
 async handler({ state }) {
   state.count = ((state.count as number) ?? 0) + 1
 
-  // First 3 calls succeed, then start failing
   if ((state.count as number) > 3) {
     return serverError('Rate limit exceeded')
   }
@@ -384,100 +415,11 @@ These are intentional security boundaries of the sandbox runtime:
 - No Node.js built-ins (`fs`, `path`, `crypto`, etc.)
 - No `require()` other than `@tsandbox/sdk`
 - `delay()` is the only async operation supported
+- SSE responses deliver all events in a single payload — true long-lived streaming is not supported
 - Maximum execution time: 10 seconds per request
 - Maximum memory: 128 MB per sandbox isolate
 
 If you need data from an external source, seed it into `state` via the State Inspector before your test run.
-
----
-
-## Deploying
-
-### Containerize with Docker
-
-TSandbox uses native Node.js addons (`isolated-vm`, `better-sqlite3`) that must compile against a specific Node.js version. Use `node:20-slim` — avoid Alpine (musl libc breaks native addons).
-
-A [`Dockerfile`](./Dockerfile) and [`docker-compose.yml`](./docker-compose.yml) are included at the repo root.
-
-```bash
-docker compose up -d
-```
-
-### Serving the frontend
-
-The backend currently serves only the API. In production, either:
-
-**Option A — nginx reverse proxy (recommended)**
-
-```nginx
-server {
-  listen 80;
-
-  # Frontend static files
-  location / {
-    root /app/packages/frontend/dist;
-    try_files $uri $uri/ /index.html;
-  }
-
-  # Backend API + mock sandbox
-  location ~ ^/(_api|_sandbox|_ws) {
-    proxy_pass http://localhost:3001;
-    proxy_http_version 1.1;
-    proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
-  }
-}
-```
-
-**Option B — serve frontend from Fastify**
-
-Add to `packages/backend/src/server.ts` before the proxy plugin:
-
-```typescript
-import fastifyStatic from '@fastify/static'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-await app.register(fastifyStatic, {
-  root: path.resolve(__dirname, '../../../frontend/dist'),
-  prefix: '/',
-  decorateReply: false,
-})
-```
-
-### Persistent storage
-
-**Always mount a volume for `/data`.** Without it, all sandboxes and history are lost on every redeploy.
-
-| Path | Contains |
-|---|---|
-| `/data/tsandbox.db` | SQLite database (sandboxes, routes, history) |
-| `/data/sandboxes/` | Mock `.ts` source files, one directory per sandbox |
-
-Back these up like any other database before upgrading.
-
-### Scaling
-
-TSandbox is designed as a **single-instance** service:
-
-- SQLite is not safe for concurrent writes across multiple processes
-- The route registry lives in memory — instances don't share it
-
-Run **one container, one replica**. If you need high availability, put a load balancer in front and use sticky sessions, or migrate the storage layer to Postgres + Redis (a future roadmap item).
-
-### Environment variables
-
-| Variable | Default | Description |
-|---|---|---|
-| `PORT` | `3001` | HTTP listen port |
-| `SANDBOXES_DIR` | `~/.tsandbox/sandboxes` | Root directory for sandbox files |
-| `DB_PATH` | `~/.tsandbox/tsandbox.db` | SQLite database path |
-| `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
-| `SANDBOX_MEMORY_MB` | `128` | Memory cap per sandbox isolate |
-| `SANDBOX_TIMEOUT_MS` | `10000` | Max handler execution time (ms) |
-| `HOT_RELOAD_DEBOUNCE_MS` | `200` | File-change debounce (ms) |
 
 ---
 
@@ -488,3 +430,10 @@ Run **one container, one replica**. If you need high availability, put a load ba
 - **State survives hot reload** — you can edit a handler mid-test without losing accumulated state
 - **History tab is your friend** — every request records full headers, body, and duration; no need to add extra logging for debugging
 - **F2 to rename** — works on files and folders in the sidebar
+- **`?__status=<code>` on any request** — triggers the matching error branch in OpenAPI-imported handlers without editing code
+
+---
+
+## Deploying
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for Docker setup, nginx configuration, persistent storage, scaling notes, and all environment variables.

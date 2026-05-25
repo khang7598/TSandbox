@@ -255,6 +255,16 @@ var __sdk = {
   serverError:    function(msg)            { return __sdk.error(msg || 'Internal server error', 500); },
   noContent:      function()               { return { status: 204, body: '' }; },
   randomFailure:  function(normal, rate, f){ return Math.random() < (rate != null ? rate : 0.1) ? (f || __sdk.error('Simulated failure', 500)) : normal; },
+  sse:            function(events) {
+    var body = events.map(function(e) {
+      var lines = [];
+      if (e.id !== undefined) lines.push('id: ' + e.id);
+      if (e.event) lines.push('event: ' + e.event);
+      lines.push('data: ' + (typeof e.data === 'string' ? e.data : JSON.stringify(e.data)));
+      return lines.join('\\n');
+    }).join('\\n\\n') + '\\n\\n';
+    return { status: 200, body: body, headers: { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', 'connection': 'keep-alive' } };
+  },
   delay:          delay,
 };
 

@@ -25,7 +25,8 @@
     "fastify": "^4.27.0",
     "isolated-vm": "^6.1.2",
     "path-to-regexp": "^6.2.2",
-    "ws": "^8.17.0"
+    "ws": "^8.17.0",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.10",

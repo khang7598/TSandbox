@@ -68,7 +68,7 @@ export default function SandboxSidebar() {
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
           Sandboxes
         </span>
-        <Button variant="ghost" size="sm" onClick={() => setCreateOpen(true)} className="p-1">
+        <Button variant="ghost" size="sm" onClick={() => setCreateOpen(true)} className="p-1" title="New sandbox">
           <Plus size={13} />
         </Button>
       </div>

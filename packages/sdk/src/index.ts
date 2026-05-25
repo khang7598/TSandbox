@@ -136,6 +136,39 @@ export function noContent(): MockResponse {
   return { status: 204, body: '' }
 }
 
+export interface SseEvent {
+  /** Event payload — objects are JSON-serialised automatically */
+  data: unknown
+  /** SSE event name */
+  event?: string
+  /** SSE event id */
+  id?: string
+}
+
+/** Return a Server-Sent Events response (all events delivered in one body) */
+export function sse(events: SseEvent[]): MockResponse {
+  const body =
+    events
+      .map((e) => {
+        const lines: string[] = []
+        if (e.id !== undefined) lines.push(`id: ${e.id}`)
+        if (e.event) lines.push(`event: ${e.event}`)
+        lines.push(`data: ${typeof e.data === 'string' ? e.data : JSON.stringify(e.data)}`)
+        return lines.join('\n')
+      })
+      .join('\n\n') + '\n\n'
+
+  return {
+    status: 200,
+    body,
+    headers: {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      connection: 'keep-alive',
+    },
+  }
+}
+
 /** Return a response that simulates a random failure (for chaos testing) */
 export function randomFailure(
   normalResponse: MockResponse,

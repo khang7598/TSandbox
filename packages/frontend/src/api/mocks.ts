@@ -216,6 +216,22 @@ export function useResetState() {
   })
 }
 
+// --- OpenAPI import ---
+
+export function useImportOpenApi() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ sandboxId, spec }: { sandboxId: string; spec: string }) => {
+      const res = await client.post(`/sandboxes/${sandboxId}/import/openapi`, { spec })
+      return res.data as { files: string[]; count: number; warnings: string[] }
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['fileTree', variables.sandboxId] })
+      queryClient.invalidateQueries({ queryKey: ['routes', variables.sandboxId] })
+    },
+  })
+}
+
 // --- Errors ---
 
 export function useCompileErrors(sandboxId: string | null) {

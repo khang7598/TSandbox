@@ -7,6 +7,7 @@ import {
   FileCode,
   File,
   Plus,
+  Upload,
   Trash2,
   Pencil,
 } from 'lucide-react'
@@ -16,6 +17,7 @@ import { useAppStore } from '@/store'
 import { useDeleteFile, useSaveFile, useRenameFile } from '@/api/mocks'
 import Button from '../ui/Button'
 import Modal from '../ui/Modal'
+import ImportOpenAPIModal from '../ImportOpenAPIModal'
 
 interface FileTreeNodeProps {
   node: FileNode
@@ -268,6 +270,7 @@ interface FileTreeProps {
 
 export default function FileTree({ nodes, sandboxId }: FileTreeProps) {
   const [newFileOpen, setNewFileOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
   const openFile = useAppStore((s) => s.openFile)
   const saveFile = useSaveFile()
   const addNotification = useAppStore((s) => s.addNotification)
@@ -294,9 +297,14 @@ export default function FileTree({ nodes, sandboxId }: FileTreeProps) {
     <div className="flex flex-col h-full">
       <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-700">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Files</span>
-        <Button variant="ghost" size="sm" onClick={() => setNewFileOpen(true)} className="p-1">
-          <Plus size={13} />
-        </Button>
+        <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)} className="p-1" title="Import OpenAPI spec">
+            <Upload size={13} />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setNewFileOpen(true)} className="p-1" title="New file">
+            <Plus size={13} />
+          </Button>
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto py-1">
         {nodes.length === 0 ? (
@@ -319,6 +327,11 @@ export default function FileTree({ nodes, sandboxId }: FileTreeProps) {
         isOpen={newFileOpen}
         onClose={() => setNewFileOpen(false)}
         onConfirm={handleNewFile}
+      />
+      <ImportOpenAPIModal
+        isOpen={importOpen}
+        onClose={() => setImportOpen(false)}
+        sandboxId={sandboxId}
       />
     </div>
   )
