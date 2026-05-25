@@ -16,10 +16,10 @@ pnpm install
 pnpm dev
 
 # Run only backend
-pnpm --filter @mocktool/backend dev
+pnpm --filter @tsandbox/backend dev
 
 # Run only frontend
-pnpm --filter @mocktool/frontend dev
+pnpm --filter @tsandbox/frontend dev
 
 # Build all packages
 pnpm build
@@ -31,7 +31,7 @@ pnpm typecheck
 pnpm --filter @tsandbox/sdk build
 
 # Run backend in production mode
-pnpm --filter @mocktool/backend start
+pnpm --filter @tsandbox/backend start
 ```
 
 No test runner is configured yet — add Vitest when needed.
@@ -41,8 +41,8 @@ No test runner is configured yet — add Vitest when needed.
 ```
 packages/
   sdk/       @tsandbox/sdk      — defineMock() helpers & TypeScript types (zero deps)
-  backend/   @mocktool/backend  — Fastify server, runtime engine, SQLite DB
-  frontend/  @mocktool/frontend — React + Vite + Monaco editor UI
+  backend/   @tsandbox/backend  — Fastify server, runtime engine, SQLite DB
+  frontend/  @tsandbox/frontend — React + Vite + Monaco editor UI
 ```
 
 ## Architecture
@@ -100,7 +100,9 @@ File write (editor UI or disk)
 
 Simple, zero-dependency helpers. Must stay dependency-free — it gets inlined into every sandboxed bundle.
 
-Key exports: `defineMock`, `defineSoapMock`, `ok`, `json`, `error`, `xml`, `soapResponse`, `soapFault`, `redirect`, `delay`, `notFound`, `unauthorized`, `forbidden`, `serverError`, `noContent`, `randomFailure`.
+Key exports: `defineMock`, `defineSoapMock`, `ok`, `json`, `error`, `xml`, `soapResponse`, `soapFault`, `redirect`, `delay`, `notFound`, `unauthorized`, `forbidden`, `serverError`, `noContent`, `randomFailure`, `sse`.
+
+`sse()` delivers all events as a single `text/event-stream` body — suitable for mock clients, not true long-lived streaming.
 
 ### Database (`db/index.ts`)
 
@@ -121,6 +123,11 @@ Single `/_ws` endpoint. Server pushes events to all connected clients. Message t
 ### Management API (`routes/management.ts`)
 
 All endpoints are prefixed `/_api`. File operations use `safePath()` to prevent path traversal. Saving a file via `PUT /_api/sandboxes/:id/files/*` also triggers the hot-reload pipeline directly (same as if the file was written to disk).
+
+Additional endpoints added beyond the core CRUD:
+- `POST /_api/sandboxes/:id/import/openapi` — parses a JSON/YAML OpenAPI 3.x spec, resolves `$ref`s, and generates one `defineMock()` file per operation (see `openapi/generator.ts`)
+- `GET /_api/sandboxes/:id/export` — streams a ZIP archive of all sandbox source files + `sandbox.json` manifest
+- `POST /_api/sandboxes/import` — accepts a multipart ZIP upload, creates a new sandbox with a fresh UUID, writes files, and hot-reloads routes (see `sandbox/transfer.ts`); ZIP paths are sanitised to prevent traversal attacks
 
 ### Frontend (`packages/frontend`)
 
@@ -149,6 +156,7 @@ State: Zustand store for UI state (active sandbox, open files, logs, notificatio
 - `require()` throws inside sandboxes (enforced in the CJS shim wrapper)
 - `delay()` is the only bridge to host APIs; all other Node.js globals are absent
 - Path traversal on file operations blocked by `safePath()` in management.ts
+- ZIP path traversal on sandbox import blocked by stripping `..` segments in `sandbox/transfer.ts`
 - CORS restricted to configured origins
 
 ## Mock File Format
@@ -174,6 +182,6 @@ export default defineMock({
 
 ## Phase Roadmap
 
-- **Phase 1** (current): REST mocks, hot reload, Monaco editor, isolated-vm, request history
-- **Phase 2**: SOAP mocks, OpenAPI/WSDL import, Yjs collaborative editing (y-monaco + y-websocket)
+- **Phase 1** (shipped): REST mocks, hot reload, Monaco editor, isolated-vm, request history, OpenAPI 3.x import (with body validation, multi-response simulation, SSE stubs), sandbox export/import as ZIP
+- **Phase 2**: SOAP/WSDL import, Yjs collaborative editing (y-monaco + y-websocket)
 - **Phase 3**: Multi-tenant SaaS, Playwright integration, runtime pools, AI mock generation
