@@ -1,8 +1,12 @@
-FROM node:20-slim AS base
+FROM node:22-slim AS base
 RUN npm i -g pnpm
 
 # ── Build stage ──────────────────────────────────────────────────────
 FROM base AS builder
+# isolated-vm is a native addon — needs Python + C++ toolchain for node-gyp
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 make g++ \
+  && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY packages/sdk/package.json        packages/sdk/
@@ -14,7 +18,7 @@ COPY . .
 RUN pnpm build
 
 # ── Runtime stage ────────────────────────────────────────────────────
-FROM node:20-slim
+FROM node:22-slim
 RUN npm i -g pnpm
 WORKDIR /app
 
