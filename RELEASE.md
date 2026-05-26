@@ -1,5 +1,14 @@
 # Release Process
 
+## Workflows
+
+| Workflow | Trigger | Purpose |
+|---|---|---|
+| **Build Docker Image** | Manual (GitHub UI) | Builds and pushes `:latest` + `:sha-xxx` — for testing a snapshot |
+| **Release Docker Image** | Manual (GitHub UI) | Creates a git tag and publishes versioned images to GHCR |
+
+---
+
 TSandbox follows [Semantic Versioning](https://semver.org/): `MAJOR.MINOR.PATCH`
 
 | Change type | Version bump | Example |
@@ -42,21 +51,24 @@ git add CHANGELOG.md
 git commit -m "chore: release v1.1.0"
 ```
 
-### 3. Tag and push
+### 3. Push to main
 
 ```bash
-git tag v1.1.0
 git push origin main
-git push origin v1.1.0
 ```
 
-Pushing the tag triggers the GitHub Actions workflow which automatically:
-- Builds the Docker image
-- Publishes `ghcr.io/khang7598/tsandbox:1.1.0`
-- Publishes `ghcr.io/khang7598/tsandbox:1.1`
-- Updates `ghcr.io/khang7598/tsandbox:latest`
+### 4. Trigger the release workflow
 
-### 4. Create a GitHub Release (optional)
+Go to **GitHub → Actions → Release Docker Image → Run workflow**, enter the version (e.g. `1.1.0`), and click **Run workflow**.
+
+The workflow will automatically:
+- Create and push the `v1.1.0` git tag
+- Build the Docker image
+- Publish `ghcr.io/khang7598/tsandbox:1.1.0`
+- Publish `ghcr.io/khang7598/tsandbox:1.1`
+- Update `ghcr.io/khang7598/tsandbox:latest`
+
+### 5. Create a GitHub Release (optional)
 
 ```bash
 gh release create v1.1.0 --title "v1.1.0" --notes-from-tag
@@ -74,14 +86,13 @@ For an urgent fix on a released version:
 # Branch from the tag
 git checkout -b hotfix/v1.0.1 v1.0.0
 
-# Make the fix, then:
+# Make the fix, update CHANGELOG.md, then:
 git add .
 git commit -m "fix: <description>"
-
-# Update changelog, tag, push
-git tag v1.0.1
 git push origin hotfix/v1.0.1
-git push origin v1.0.1
+
+# Trigger the release from GitHub UI:
+# Actions → Release Docker Image → Run workflow → version: 1.0.1
 
 # Merge fix back into main
 git checkout main
