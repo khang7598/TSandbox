@@ -1,59 +1,89 @@
 # Deploying TSandbox
 
-## Containerize with Docker
+## Option A — Pull from GHCR (recommended)
 
-TSandbox uses native Node.js addons (`isolated-vm`, `better-sqlite3`) that must compile against a specific Node.js version. Use `node:20-slim` — avoid Alpine (musl libc breaks native addons).
+Pre-built images are published to GitHub Container Registry on every release.
 
-A [`Dockerfile`](./Dockerfile) and [`docker-compose.yml`](./docker-compose.yml) are included at the repo root.
+```bash
+docker pull ghcr.io/khang7598/tsandbox:latest
+```
+
+Run with a persistent volume:
+
+```bash
+docker run -d \
+  --name tsandbox \
+  --restart unless-stopped \
+  -p 3001:3001 \
+  -v tsandbox_data:/data \
+  ghcr.io/khang7598/tsandbox:latest
+```
+
+Or with docker compose — create a `docker-compose.yml`:
+
+```yaml
+services:
+  tsandbox:
+    image: ghcr.io/khang7598/tsandbox:latest
+    ports:
+      - "3001:3001"
+    volumes:
+      - tsandbox_data:/data
+    environment:
+      CORS_ORIGINS: "https://your-frontend.example.com"
+    restart: unless-stopped
+
+volumes:
+  tsandbox_data:
+```
 
 ```bash
 docker compose up -d
 ```
 
+To pin to a specific release instead of `latest`:
+
+```yaml
+image: ghcr.io/khang7598/tsandbox:1.0.0
+```
+
+Available tags: `latest`, `1.0.0`, `1.0` — see all at [ghcr.io/khang7598/tsandbox](https://github.com/khang7598/TSandbox/pkgs/container/tsandbox).
+
+---
+
+## Option B — Build from source
+
+Use this if you want to customise the image or test local changes.
+
+A [`Dockerfile`](./Dockerfile) and [`docker-compose.yml`](./docker-compose.yml) are included at the repo root. The `docker-compose.yml` builds the image locally:
+
+```bash
+docker compose up -d --build
+```
+
+> **Note:** TSandbox uses native Node.js addons (`isolated-vm`, `better-sqlite3`).
+> The Dockerfile requires `node:22-slim` — avoid Alpine (musl libc breaks native addons).
+
 ---
 
 ## Serving the Frontend
 
-The backend serves only the API. In production, either:
+The Docker image serves the built frontend as static files from Fastify on port `3001` — no separate web server is needed.
 
-**Option A — nginx reverse proxy (recommended)**
+For custom routing or TLS termination, add an nginx reverse proxy in front:
 
 ```nginx
 server {
   listen 80;
 
-  # Frontend static files
   location / {
-    root /app/packages/frontend/dist;
-    try_files $uri $uri/ /index.html;
-  }
-
-  # Backend API + mock sandbox + WebSocket
-  location ~ ^/(_api|_sandbox|_ws) {
     proxy_pass http://localhost:3001;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
   }
 }
-```
-
-**Option B — serve frontend from Fastify**
-
-Add to `packages/backend/src/server.ts` before the proxy plugin:
-
-```typescript
-import fastifyStatic from '@fastify/static'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-await app.register(fastifyStatic, {
-  root: path.resolve(__dirname, '../../../frontend/dist'),
-  prefix: '/',
-  decorateReply: false,
-})
 ```
 
 ---
@@ -68,6 +98,18 @@ await app.register(fastifyStatic, {
 | `/data/sandboxes/` | Mock `.ts` source files, one directory per sandbox |
 
 Back these up before upgrading.
+
+---
+
+## Upgrading
+
+```bash
+# Pull the new image
+docker compose pull
+
+# Recreate the container (data volume is preserved)
+docker compose up -d
+```
 
 ---
 
@@ -87,8 +129,8 @@ Run **one container, one replica**. If you need high availability, put a load ba
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3001` | HTTP listen port |
-| `SANDBOXES_DIR` | `~/.tsandbox/sandboxes` | Root directory for sandbox files |
-| `DB_PATH` | `~/.tsandbox/tsandbox.db` | SQLite database path |
+| `SANDBOXES_DIR` | `/data/sandboxes` | Root directory for sandbox files |
+| `DB_PATH` | `/data/tsandbox.db` | SQLite database path |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `SANDBOX_MEMORY_MB` | `128` | Memory cap per sandbox isolate |
 | `SANDBOX_TIMEOUT_MS` | `10000` | Max handler execution time (ms) |
