@@ -141,6 +141,6 @@ docker run -d \
   ghcr.io/khang7598/tsandbox:latest
 ```
 
-Pin to a specific version by replacing `latest` with a release tag (e.g. `1.0.0`).
+Pin to a specific version by replacing `latest` with a release tag (e.g. `1.3.0`).
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for docker compose setup, nginx configuration, building from source, persistent storage, upgrading, and all environment variables.
