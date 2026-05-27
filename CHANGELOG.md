@@ -11,6 +11,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
 
+## [1.2.0] - 2026-05-27
+
+> Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
+
+### Added
+- Monaco IntelliSense for `@tsandbox/sdk` — full type declarations registered as a virtual lib so `import { ok } from '@tsandbox/sdk'` resolves with completions, parameter hints, and JSDoc tooltips
+- Cross-file import resolution — all sandbox files are loaded as background Monaco models on editor mount, enabling `import { users } from './data'` to resolve correctly
+- Search across files (`Ctrl+Shift+F` / `Cmd+Shift+F`) — overlay with match highlighting, results grouped by file, click to jump to line
+- SQLite WAL mode (`PRAGMA journal_mode = WAL`) — better concurrent read performance under load
+- `HEALTHCHECK` in Dockerfile — Docker Compose and orchestrators can now track container readiness via `/_api/health`
+- CI workflow (`ci.yml`) — runs `pnpm typecheck && pnpm build` on every push and PR to `main`
+
+### Fixed
+- Suppress `Cannot find module` (TS2307) squiggles for relative imports — resolved at runtime by esbuild, noise in Monaco
+
+### Changed
+- Graceful shutdown — `SIGTERM` / `SIGINT` now call `app.close()` to drain in-flight requests before the process exits
+
+---
+
 ## [1.1.0] - 2026-05-27
 
 > Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
@@ -64,6 +84,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Path traversal protection on all file operations (`safePath()`)
 - ZIP path traversal protection on sandbox import
 
-[Unreleased]: https://github.com/khang7598/TSandbox/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/khang7598/TSandbox/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/khang7598/TSandbox/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/khang7598/TSandbox/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/khang7598/TSandbox/releases/tag/v1.0.0
