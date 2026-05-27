@@ -47,7 +47,7 @@ To pin to a specific release instead of `latest`:
 image: ghcr.io/khang7598/tsandbox:1.0.0
 ```
 
-Available tags: `latest`, `1.0.0`, `1.0` — see all at [ghcr.io/khang7598/tsandbox](https://github.com/khang7598/TSandbox/pkgs/container/tsandbox).
+Available tags: `latest`, `1.3.0`, `1.2.0`, … — see all at [ghcr.io/khang7598/tsandbox](https://github.com/khang7598/TSandbox/pkgs/container/tsandbox).
 
 ---
 
@@ -96,8 +96,26 @@ server {
 |---|---|
 | `/data/tsandbox.db` | SQLite database (sandboxes, routes, history) |
 | `/data/sandboxes/` | Mock `.ts` source files, one directory per sandbox |
+| `/data/logs/` | Append-only NDJSON request logs, one file per sandbox per day |
 
 Back these up before upgrading.
+
+To mount logs to a separate host path (e.g. for log shipping):
+
+```yaml
+services:
+  tsandbox:
+    image: ghcr.io/khang7598/tsandbox:latest
+    ports:
+      - "3001:3001"
+    volumes:
+      - tsandbox_data:/data
+      - /var/log/tsandbox:/data/logs   # override log dir to a host path
+    restart: unless-stopped
+
+volumes:
+  tsandbox_data:
+```
 
 ---
 
@@ -126,12 +144,15 @@ Run **one container, one replica**. If you need high availability, put a load ba
 
 ## Environment Variables
 
-| Variable | Default | Description |
+| Variable | Default (Docker) | Description |
 |---|---|---|
 | `PORT` | `3001` | HTTP listen port |
-| `SANDBOXES_DIR` | `/data/sandboxes` | Root directory for sandbox files |
+| `SANDBOXES_DIR` | `/data/sandboxes` | Root directory for sandbox mock files |
 | `DB_PATH` | `/data/tsandbox.db` | SQLite database path |
+| `LOG_DIR` | `/data/logs` | Root directory for per-sandbox NDJSON request logs |
+| `LOG_RETENTION_DAYS` | `30` | Days to retain log files before automatic deletion |
 | `CORS_ORIGINS` | `http://localhost:5173` | Comma-separated allowed origins |
 | `SANDBOX_MEMORY_MB` | `128` | Memory cap per sandbox isolate |
 | `SANDBOX_TIMEOUT_MS` | `10000` | Max handler execution time (ms) |
 | `HOT_RELOAD_DEBOUNCE_MS` | `200` | File-change debounce (ms) |
+| `HISTORY_LIMIT` | `1000` | Max request history rows kept per sandbox in SQLite |

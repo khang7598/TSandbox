@@ -39,6 +39,7 @@ ENV NODE_ENV=production
 ENV PORT=3001
 ENV DB_PATH=/data/tsandbox.db
 ENV SANDBOXES_DIR=/data/sandboxes
+ENV LOG_DIR=/data/logs
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD curl -f http://localhost:3001/_api/health || exit 1
