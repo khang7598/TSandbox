@@ -5,9 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+---
+
 ## [Unreleased]
 
+> Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
+
+### Added
+- `docs/GUIDE.md` — full SDK and mock-writing reference extracted from README
+- `docs/ARCHITECTURE.md` — deep-dive study guide covering all subsystems
+
+### Changed
+- Docker image now serves the frontend directly from Fastify — no separate web server needed
+- Docker image size reduced from ~600 MB to ~447 MB by pruning devDependencies via `pnpm deploy --prod`
+- GitHub Actions workflows split into two manual triggers:
+  - **Build Docker Image** — pushes `:latest` + `:sha-xxx` snapshot
+  - **Release Docker Image** — creates git tag and publishes semver-tagged images to GHCR
+- `DEPLOYMENT.md` restructured: GHCR pull is now the primary (recommended) deployment option
+
+### Fixed
+- Dockerfile base image changed from `node:20-slim` to `node:22-slim` — `isolated-vm@6.x` requires V8 12+ (Node 22)
+- Added Python + C++ build tools to builder stage so `node-gyp` can compile native addons
+- Added `.dockerignore` — `COPY . .` was overwriting Linux-compiled native binaries with macOS Mach-O binaries
+
+---
+
 ## [1.0.0] - 2026-05-26
+
+> Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
 
 ### Added
 - Core sandbox runtime: TypeScript mock handlers executed in isolated V8 isolates via `isolated-vm`
