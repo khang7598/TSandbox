@@ -129,6 +129,10 @@ Additional endpoints added beyond the core CRUD:
 - `GET /_api/sandboxes/:id/export` — streams a ZIP archive of all sandbox source files + `sandbox.json` manifest
 - `POST /_api/sandboxes/import` — accepts a multipart ZIP upload, creates a new sandbox with a fresh UUID, writes files, and hot-reloads routes (see `sandbox/transfer.ts`); ZIP paths are sanitised to prevent traversal attacks
 
+### Frontend serving in production (`routes/proxy.ts` + `server.ts`)
+
+In the Docker image, `@fastify/static` is registered with `wildcard: false` (decorates `reply.sendFile()` without adding a competing `GET /*` route). The proxy plugin accepts `{ publicDir?: string }` — when set, the no-match branch serves static files or falls back to `index.html` for SPA routing. Only plain GET requests that are not sandbox-targeted (no `/_sandbox` prefix, no `X-Sandbox-Id` header) are served this way; sandbox 404s still return JSON.
+
 ### Frontend (`packages/frontend`)
 
 VSCode-inspired 3-panel layout:
@@ -137,6 +141,22 @@ VSCode-inspired 3-panel layout:
 - **Right**: API Explorer / Request History / Runtime Logs / State Inspector
 
 State: Zustand store for UI state (active sandbox, open files, logs, notifications). Server state: React Query (TanStack Query v5).
+
+## Docker / Production Layout
+
+The runtime image uses a flat structure under `/app/`:
+
+```
+dist/          ← compiled backend (entry: dist/index.js)
+public/        ← frontend static files (served by Fastify)
+node_modules/  ← production deps only (pruned via pnpm deploy --prod)
+```
+
+Build requires Node.js 22+ (`node:22-slim`). `isolated-vm@6.x` uses `v8::SourceLocation` (V8 12+, shipped in Node 22). The builder stage installs `python3 make g++` for `node-gyp`. The `.dockerignore` excludes `node_modules` and `dist` from the build context.
+
+Two manual GitHub Actions workflows (`.github/workflows/`):
+- `docker-build.yml` — builds and pushes `:latest` + `:sha-xxx`
+- `docker-release.yml` — takes a `version` input, creates git tag, publishes semver images to GHCR
 
 ## Environment Variables (backend)
 
@@ -179,6 +199,14 @@ export default defineMock({
   },
 })
 ```
+
+## Reference Docs
+
+- `docs/GUIDE.md` — SDK and mock-writing reference (for users)
+- `docs/ARCHITECTURE.md` — deep-dive study guide (subsystems, design decisions)
+- `DEPLOYMENT.md` — Docker, GHCR, nginx, env vars
+- `RELEASE.md` — semver release process and hotfix workflow
+- `CHANGELOG.md` — version history
 
 ## Phase Roadmap
 
