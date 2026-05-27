@@ -37,6 +37,20 @@ export interface HistoryEntry {
   duration_ms: number
   timestamp: number
   logs: LogEntry[]
+  ip: string | null
+  user_agent: string | null
+  source: string | null
+  matched_endpoint: string | null
+}
+
+export interface SandboxStats {
+  total: number
+  avg_duration_ms: number
+  errors_5xx: number
+  errors_4xx: number
+  success_2xx: number
+  topEndpoints: { endpoint: string; count: number }[]
+  topSources: { source: string; count: number }[]
 }
 
 export interface LogEntry {
@@ -64,6 +78,7 @@ export interface WSMessage {
   pattern?: string
   compiledAt?: number
   error?: string
+  event?: HistoryEntry
 }
 
 export interface Notification {

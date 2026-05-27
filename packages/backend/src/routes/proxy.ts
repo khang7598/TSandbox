@@ -14,11 +14,31 @@ import { executeHandler } from '../runtime/sandbox.js'
 import { db, queries } from '../db/index.js'
 import { broadcast } from '../ws/index.js'
 import { config } from '../config.js'
+import { writeLogEvent } from '../logs/writer.js'
 import crypto from 'node:crypto'
 
 interface ProxyOptions {
   publicDir?: string
 }
+
+// ─── Source detection ──────────────────────────────────────────────────────────
+
+function detectSource(ua: string | undefined): string {
+  if (!ua) return 'Unknown'
+  const u = ua.toLowerCase()
+  if (u.includes('postmanruntime')) return 'Postman'
+  if (u.includes('insomnia')) return 'Insomnia'
+  if (u.includes('curl')) return 'curl'
+  if (u.includes('python-httpx') || u.includes('python-requests')) return 'Python'
+  if (u.includes('axios')) return 'Axios'
+  if (u.includes('got/') || u.includes('node-fetch') || u.includes('undici')) return 'Node.js'
+  if (u.includes('okhttp')) return 'Android'
+  if (u.includes('dart') || u.includes('flutter')) return 'Flutter'
+  if (/mozilla|chrome|safari|firefox|edge/.test(u)) return 'Browser'
+  return 'Unknown'
+}
+
+// ─── Proxy handler ────────────────────────────────────────────────────────────
 
 export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Promise<void> {
   const { publicDir } = opts
@@ -59,6 +79,12 @@ export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Pro
       Object.entries(request.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : v ?? '']),
     )
 
+    // ── Client metadata ───────────────────────────────────────────────────────
+    const ip = (request.headers['x-forwarded-for'] as string | undefined)
+      ?.split(',')[0]?.trim() ?? request.ip ?? null
+    const userAgent = (request.headers['user-agent'] as string | undefined) ?? null
+    const source = detectSource(userAgent ?? undefined)
+
     if (!match) {
       // Frontend static file serving — only for plain GET requests that are
       // not explicitly targeting a sandbox (prefix or header). This lets the
@@ -78,21 +104,28 @@ export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Pro
         message: 'Create a mock for this route in your sandbox.',
       }
 
-      // Record 404 in history
-      recordHistory({
+      const durationMs = Date.now() - requestedAt
+
+      recordAndBroadcast({
         id: requestId,
         sandboxId,
         routeId: null,
         method,
         url,
+        pathname,
+        queryString: queryString ?? null,
         requestHeaders,
         requestBody: null,
         responseStatus: 404,
         responseHeaders: { 'content-type': 'application/json' },
         responseBody: JSON.stringify(notFoundResponse),
-        durationMs: Date.now() - requestedAt,
+        durationMs,
         timestamp: requestedAt,
         logs: [],
+        ip,
+        userAgent,
+        source,
+        matchedEndpoint: null,
       })
 
       return reply.status(404).send(notFoundResponse)
@@ -126,6 +159,7 @@ export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Pro
     }
 
     const requestBodyStr = request.body ? JSON.stringify(request.body) : null
+    const matchedEndpoint = entry.pattern
 
     try {
       const result = await executeHandler({
@@ -191,13 +225,14 @@ export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Pro
         })
       }
 
-      // Record in history
-      recordHistory({
+      recordAndBroadcast({
         id: requestId,
         sandboxId,
         routeId: entry.id,
         method,
         url,
+        pathname,
+        queryString: queryString ?? null,
         requestHeaders,
         requestBody: requestBodyStr,
         responseStatus: status,
@@ -206,6 +241,10 @@ export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Pro
         durationMs,
         timestamp: requestedAt,
         logs,
+        ip,
+        userAgent,
+        source,
+        matchedEndpoint,
       })
 
       return reply
@@ -227,12 +266,14 @@ export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Pro
         error: message,
       })
 
-      recordHistory({
+      recordAndBroadcast({
         id: requestId,
         sandboxId,
         routeId: entry.id,
         method,
         url,
+        pathname,
+        queryString: queryString ?? null,
         requestHeaders,
         requestBody: requestBodyStr,
         responseStatus: 500,
@@ -241,6 +282,10 @@ export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Pro
         durationMs,
         timestamp: requestedAt,
         logs: [],
+        ip,
+        userAgent,
+        source,
+        matchedEndpoint,
       })
 
       return reply.status(500).send({ error: message })
@@ -249,7 +294,7 @@ export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Pro
   })
 }
 
-// ─── History recording ─────────────────────────────────────────────────────────
+// ─── History recording + WS push + file log ───────────────────────────────────
 
 interface HistoryRecord {
   id: string
@@ -257,6 +302,8 @@ interface HistoryRecord {
   routeId: string | null
   method: string
   url: string
+  pathname: string
+  queryString: string | null
   requestHeaders: Record<string, string>
   requestBody: string | null
   responseStatus: number
@@ -265,9 +312,13 @@ interface HistoryRecord {
   durationMs: number
   timestamp: number
   logs: unknown[]
+  ip: string | null
+  userAgent: string | null
+  source: string
+  matchedEndpoint: string | null
 }
 
-function recordHistory(rec: HistoryRecord): void {
+function recordAndBroadcast(rec: HistoryRecord): void {
   try {
     queries.insertHistory.run(
       rec.id,
@@ -283,15 +334,55 @@ function recordHistory(rec: HistoryRecord): void {
       rec.durationMs,
       rec.timestamp,
       JSON.stringify(rec.logs),
+      rec.ip,
+      rec.userAgent,
+      rec.source,
+      rec.matchedEndpoint,
     )
 
-    // Prune to keep table bounded
-    db.prepare(
-      `DELETE FROM request_history WHERE sandbox_id = ? AND id NOT IN (
-         SELECT id FROM request_history WHERE sandbox_id = ? ORDER BY timestamp DESC LIMIT ?
-       )`,
-    ).run(rec.sandboxId, rec.sandboxId, config.historyLimit)
+    queries.pruneHistory.run(rec.sandboxId, rec.sandboxId, config.historyLimit)
   } catch (e) {
     console.error('[history] write error', e)
   }
+
+  // Push compact event to UI over WebSocket (no body to keep payload light)
+  broadcast({
+    type: 'request_logged',
+    sandboxId: rec.sandboxId,
+    event: {
+      id: rec.id,
+      sandbox_id: rec.sandboxId,
+      route_id: rec.routeId,
+      method: rec.method,
+      url: rec.url,
+      request_headers: rec.requestHeaders,
+      request_body: rec.requestBody,
+      response_status: rec.responseStatus,
+      response_headers: rec.responseHeaders,
+      response_body: rec.responseBody,
+      duration_ms: rec.durationMs,
+      timestamp: rec.timestamp,
+      logs: rec.logs,
+      ip: rec.ip,
+      user_agent: rec.userAgent,
+      source: rec.source,
+      matched_endpoint: rec.matchedEndpoint,
+    },
+  })
+
+  // Append to NDJSON log file (fire-and-forget)
+  writeLogEvent({
+    timestamp: new Date(rec.timestamp).toISOString(),
+    sandboxId: rec.sandboxId,
+    requestId: rec.id,
+    method: rec.method,
+    path: rec.pathname,
+    query: rec.queryString,
+    status: rec.responseStatus,
+    durationMs: rec.durationMs,
+    ip: rec.ip,
+    userAgent: rec.userAgent,
+    source: rec.source,
+    matchedEndpoint: rec.matchedEndpoint,
+  })
 }

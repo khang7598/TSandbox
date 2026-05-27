@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { LogEntry, Notification } from '@/types'
+import type { HistoryEntry, LogEntry, Notification } from '@/types'
 
 interface AppStore {
   activeSandboxId: string | null
@@ -27,6 +27,10 @@ interface AppStore {
 
   pendingNavigation: { file: string; line: number } | null
   setPendingNavigation: (nav: { file: string; line: number } | null) => void
+
+  // Per-sandbox live events streamed over WebSocket
+  liveEvents: Record<string, HistoryEntry[]>
+  appendLiveEvent: (sandboxId: string, event: HistoryEntry) => void
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -81,4 +85,18 @@ export const useAppStore = create<AppStore>((set) => ({
 
   pendingNavigation: null,
   setPendingNavigation: (nav) => set({ pendingNavigation: nav }),
+
+  liveEvents: {},
+  appendLiveEvent: (sandboxId, event) =>
+    set((state) => {
+      const existing = state.liveEvents[sandboxId] ?? []
+      // Deduplicate by id, cap at 500
+      if (existing.some((e) => e.id === event.id)) return state
+      return {
+        liveEvents: {
+          ...state.liveEvents,
+          [sandboxId]: [event, ...existing].slice(0, 500),
+        },
+      }
+    }),
 }))

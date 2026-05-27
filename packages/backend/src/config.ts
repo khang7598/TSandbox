@@ -19,6 +19,10 @@ export interface Config {
   /** Origins allowed for CORS */
   corsOrigins: string[]
   nodeEnv: string
+  /** Root directory for per-sandbox NDJSON request logs */
+  logDir: string
+  /** Number of days to retain log files before deletion */
+  logRetentionDays: number
 }
 
 function env(key: string, fallback: string): string {
@@ -43,4 +47,6 @@ export const config: Config = {
   hotReloadDebounceMs: envInt('HOT_RELOAD_DEBOUNCE_MS', 200),
   corsOrigins: env('CORS_ORIGINS', 'http://localhost:5173,http://localhost:3000').split(','),
   nodeEnv: env('NODE_ENV', 'development'),
+  logDir: env('LOG_DIR', path.join(workDir, 'logs')),
+  logRetentionDays: envInt('LOG_RETENTION_DAYS', 30),
 }

@@ -53,7 +53,26 @@ db.exec(`
 
   CREATE INDEX IF NOT EXISTS idx_history_sandbox ON request_history (sandbox_id, timestamp DESC);
   CREATE INDEX IF NOT EXISTS idx_history_timestamp ON request_history (timestamp DESC);
+  CREATE INDEX IF NOT EXISTS idx_history_status ON request_history (sandbox_id, response_status);
+`)
 
+// Safe column migrations — SQLite has no IF NOT EXISTS on ALTER TABLE
+{
+  const existingCols = new Set(
+    (db.prepare("PRAGMA table_info(request_history)").all() as { name: string }[]).map((r) => r.name),
+  )
+  const additions: [string, string][] = [
+    ['ip', 'TEXT'],
+    ['user_agent', 'TEXT'],
+    ['source', 'TEXT'],
+    ['matched_endpoint', 'TEXT'],
+  ]
+  for (const [col, type] of additions) {
+    if (!existingCols.has(col)) db.exec(`ALTER TABLE request_history ADD COLUMN ${col} ${type}`)
+  }
+}
+
+db.exec(`
   CREATE TABLE IF NOT EXISTS compile_errors (
     route_id    TEXT PRIMARY KEY,
     sandbox_id  TEXT NOT NULL,
@@ -116,6 +135,10 @@ export interface HistoryRow {
   duration_ms: number
   timestamp: number
   logs: string
+  ip: string | null
+  user_agent: string | null
+  source: string | null
+  matched_endpoint: string | null
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -141,10 +164,11 @@ export const queries: Record<string, Statement<any[], any>> = {
   insertHistory: db.prepare(`
     INSERT INTO request_history
       (id, sandbox_id, route_id, method, url, request_headers, request_body,
-       response_status, response_headers, response_body, duration_ms, timestamp, logs)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       response_status, response_headers, response_body, duration_ms, timestamp, logs,
+       ip, user_agent, source, matched_endpoint)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `),
-  pruneHistory: db.prepare<[string, number]>(
+  pruneHistory: db.prepare<[string, string, number]>(
     `DELETE FROM request_history WHERE sandbox_id = ? AND id NOT IN (
        SELECT id FROM request_history WHERE sandbox_id = ? ORDER BY timestamp DESC LIMIT ?
      )`,

@@ -260,26 +260,75 @@ export async function managementPlugin(app: FastifyInstance): Promise<void> {
 
   app.get('/_api/sandboxes/:id/history', async (request, reply) => {
     const { id } = request.params as { id: string }
-    const { limit = '50' } = request.query as { limit?: string }
+    const { limit = '100', status, method, q } = request.query as {
+      limit?: string; status?: string; method?: string; q?: string
+    }
 
-    const rows = queries.getHistory.all(id, parseInt(limit, 10))
-    return reply.send(
-      rows.map((r: unknown) => {
-        const row = r as Record<string, unknown>
-        return {
-          ...row,
-          request_headers: JSON.parse(row['request_headers'] as string),
-          response_headers: JSON.parse(row['response_headers'] as string),
-          logs: JSON.parse(row['logs'] as string),
-        }
-      }),
-    )
+    const conditions: string[] = ['sandbox_id = ?']
+    const params: unknown[] = [id]
+
+    if (status === '2xx') { conditions.push('response_status >= 200 AND response_status < 300') }
+    else if (status === '3xx') { conditions.push('response_status >= 300 AND response_status < 400') }
+    else if (status === '4xx') { conditions.push('response_status >= 400 AND response_status < 500') }
+    else if (status === '5xx') { conditions.push('response_status >= 500') }
+    else if (status) { conditions.push('response_status = ?'); params.push(parseInt(status, 10)) }
+
+    if (method && method !== 'ALL') { conditions.push('method = ?'); params.push(method.toUpperCase()) }
+    if (q) { conditions.push('url LIKE ?'); params.push(`%${q}%`) }
+
+    params.push(parseInt(limit, 10))
+
+    const sql = `SELECT * FROM request_history WHERE ${conditions.join(' AND ')} ORDER BY timestamp DESC LIMIT ?`
+    const rows = db.prepare(sql).all(...params) as Record<string, unknown>[]
+
+    return reply.send(rows.map((row) => ({
+      ...row,
+      request_headers: JSON.parse(row['request_headers'] as string),
+      response_headers: JSON.parse(row['response_headers'] as string),
+      logs: JSON.parse(row['logs'] as string),
+    })))
   })
 
   app.delete('/_api/sandboxes/:id/history', async (request, reply) => {
     const { id } = request.params as { id: string }
     queries.clearHistory.run(id)
     return reply.status(204).send()
+  })
+
+  // ── Stats ─────────────────────────────────────────────────────────────────────
+
+  app.get('/_api/sandboxes/:id/stats', async (request, reply) => {
+    const { id } = request.params as { id: string }
+
+    const agg = db.prepare<[string]>(`
+      SELECT
+        COUNT(*) as total,
+        COALESCE(ROUND(AVG(duration_ms), 1), 0) as avg_duration_ms,
+        COALESCE(SUM(CASE WHEN response_status >= 500 THEN 1 ELSE 0 END), 0) as errors_5xx,
+        COALESCE(SUM(CASE WHEN response_status >= 400 AND response_status < 500 THEN 1 ELSE 0 END), 0) as errors_4xx,
+        COALESCE(SUM(CASE WHEN response_status >= 200 AND response_status < 300 THEN 1 ELSE 0 END), 0) as success_2xx
+      FROM request_history WHERE sandbox_id = ?
+    `).get(id) as { total: number; avg_duration_ms: number; errors_5xx: number; errors_4xx: number; success_2xx: number }
+
+    const topEndpoints = db.prepare<[string]>(`
+      SELECT matched_endpoint as endpoint, COUNT(*) as count
+      FROM request_history
+      WHERE sandbox_id = ? AND matched_endpoint IS NOT NULL
+      GROUP BY matched_endpoint
+      ORDER BY count DESC
+      LIMIT 5
+    `).all(id) as { endpoint: string; count: number }[]
+
+    const topSources = db.prepare<[string]>(`
+      SELECT COALESCE(source, 'Unknown') as source, COUNT(*) as count
+      FROM request_history
+      WHERE sandbox_id = ?
+      GROUP BY source
+      ORDER BY count DESC
+      LIMIT 5
+    `).all(id) as { source: string; count: number }[]
+
+    return reply.send({ ...agg, topEndpoints, topSources })
   })
 
   // ── State ─────────────────────────────────────────────────────────────────────

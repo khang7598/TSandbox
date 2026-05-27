@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import client from './client'
-import type { Sandbox, FileNode, Route, HistoryEntry, CompileError } from '@/types'
+import type { Sandbox, FileNode, Route, HistoryEntry, CompileError, SandboxStats } from '@/types'
 
 // --- Sandboxes ---
 
@@ -164,7 +164,7 @@ export function useRoutes(sandboxId: string | null) {
 
 // --- History ---
 
-export function useHistory(sandboxId: string | null, limit = 50) {
+export function useHistory(sandboxId: string | null, limit = 500) {
   return useQuery<HistoryEntry[]>({
     queryKey: ['history', sandboxId, limit],
     queryFn: async () => {
@@ -172,7 +172,20 @@ export function useHistory(sandboxId: string | null, limit = 50) {
       return res.data
     },
     enabled: !!sandboxId,
-    refetchInterval: 3000,
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+  })
+}
+
+export function useStats(sandboxId: string | null) {
+  return useQuery<SandboxStats>({
+    queryKey: ['stats', sandboxId],
+    queryFn: async () => {
+      const res = await client.get(`/sandboxes/${sandboxId}/stats`)
+      return res.data
+    },
+    enabled: !!sandboxId,
+    refetchInterval: 15_000,
   })
 }
 

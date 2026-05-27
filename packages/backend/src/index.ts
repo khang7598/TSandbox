@@ -1,6 +1,7 @@
 import { buildServer } from './server.js'
 import { config } from './config.js'
 import { loadExistingSandboxes, startWatcher } from './runtime/hot-reload.js'
+import { scheduleRetention } from './logs/retention.js'
 import fs from 'node:fs'
 
 async function main() {
@@ -14,6 +15,9 @@ async function main() {
 
   // Start file watcher for live hot reload
   startWatcher(config.sandboxesDir)
+
+  // Schedule log retention cleanup (runs now + daily)
+  scheduleRetention()
 
   // Start server
   await app.listen({ port: config.port, host: config.host })

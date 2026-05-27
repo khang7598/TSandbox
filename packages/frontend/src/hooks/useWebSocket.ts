@@ -10,6 +10,7 @@ export function useWebSocket() {
   const addLog = useAppStore((s) => s.addLog)
   const addNotification = useAppStore((s) => s.addNotification)
   const setWsConnected = useAppStore((s) => s.setWsConnected)
+  const appendLiveEvent = useAppStore((s) => s.appendLiveEvent)
 
   useEffect(() => {
     function connect() {
@@ -89,6 +90,12 @@ export function useWebSocket() {
               message: msg.error ?? 'Unknown runtime error',
             })
             break
+
+          case 'request_logged':
+            if (sandboxId && msg.event) {
+              appendLiveEvent(sandboxId, msg.event)
+            }
+            break
         }
       }
 
@@ -110,5 +117,5 @@ export function useWebSocket() {
       }
       wsRef.current?.close()
     }
-  }, [queryClient, addLog, addNotification, setWsConnected])
+  }, [queryClient, addLog, addNotification, setWsConnected, appendLiveEvent])
 }
