@@ -1,5 +1,10 @@
 # TSandbox
 
+[![CI](https://github.com/khang7598/TSandbox/actions/workflows/ci.yml/badge.svg)](https://github.com/khang7598/TSandbox/actions/workflows/ci.yml)
+[![Release](https://github.com/khang7598/TSandbox/actions/workflows/docker-release.yml/badge.svg)](https://github.com/khang7598/TSandbox/actions/workflows/docker-release.yml)
+[![GitHub release](https://img.shields.io/github/v/release/khang7598/TSandbox)](https://github.com/khang7598/TSandbox/releases)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D22-brightgreen)](https://nodejs.org)
+
 TSandbox is a programmable API sandbox platform. Instead of static JSON fixtures, you write TypeScript handlers that run live in isolated sandboxes — with hot reload, request history, runtime logs, and shared state.
 
 ![TSandbox UI](./docs/screenshot.png)
