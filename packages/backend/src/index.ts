@@ -28,6 +28,16 @@ async function main() {
 ║  Sandboxes    →  ${config.sandboxesDir.padEnd(36)} ║
 ╚══════════════════════════════════════════════════════╝
   `)
+
+  // Drain in-flight requests before exiting — important in Docker / k8s
+  // where SIGTERM is sent before the container is stopped.
+  const shutdown = async (signal: string) => {
+    app.log.info(`received ${signal}, shutting down gracefully`)
+    await app.close()
+    process.exit(0)
+  }
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
 }
 
 main().catch((err) => {
