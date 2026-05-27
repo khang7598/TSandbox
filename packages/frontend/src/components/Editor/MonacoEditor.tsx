@@ -6,6 +6,8 @@ import clsx from 'clsx'
 import { useFileContent, useSaveFile, useCompileErrors } from '@/api/mocks'
 import { useAppStore } from '@/store'
 import { configureMonaco } from '@/lib/monaco-sdk'
+import client from '@/api/client'
+import type { FileNode } from '@/types'
 
 interface EditorTabsProps {
   openFiles: string[]
@@ -62,6 +64,7 @@ export default function MonacoEditorPanel({ sandboxId }: MonacoEditorPanelProps)
 
   const [localContent, setLocalContent] = useState<string>('')
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
+  const [monacoReady, setMonacoReady] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
@@ -98,6 +101,45 @@ export default function MonacoEditorPanel({ sandboxId }: MonacoEditorPanelProps)
     }
   }, [compileErrors, activeFile])
 
+  // Load all sandbox TS/JS files as background Monaco models so relative
+  // imports resolve (e.g. `import { users } from './data'`).
+  useEffect(() => {
+    if (!sandboxId || !monacoReady || !monacoRef.current) return
+    const monaco = monacoRef.current
+    let cancelled = false
+
+    async function loadBackgroundModels() {
+      try {
+        const treeRes = await client.get<FileNode[]>(`/sandboxes/${sandboxId}/files`)
+        if (cancelled) return
+        const filePaths = flattenTree(treeRes.data)
+
+        for (const filePath of filePaths) {
+          if (cancelled) return
+          const uri = monaco.Uri.parse(`file:///${filePath}`)
+          if (monaco.editor.getModel(uri)) continue
+          try {
+            const contentRes = await client.get<{ path: string; content: string }>(
+              `/sandboxes/${sandboxId}/files/${filePath}`,
+            )
+            if (cancelled) return
+            const lang = /\.tsx?$/.test(filePath) ? 'typescript' : 'javascript'
+            monaco.editor.createModel(contentRes.data.content, lang, uri)
+          } catch {
+            // ignore individual file errors
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    loadBackgroundModels()
+    return () => {
+      cancelled = true
+    }
+  }, [sandboxId, monacoReady])
+
   const doSave = useCallback(
     async (content: string) => {
       if (!sandboxId || !activeFile) return
@@ -106,6 +148,14 @@ export default function MonacoEditorPanel({ sandboxId }: MonacoEditorPanelProps)
         await saveFile.mutateAsync({ sandboxId, filePath: activeFile, content })
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus('idle'), 2000)
+        // Keep background model in sync so other files' imports see latest content
+        if (monacoRef.current) {
+          const uri = monacoRef.current.Uri.parse(`file:///${activeFile}`)
+          const model = monacoRef.current.editor.getModel(uri)
+          if (model && model.getValue() !== content) {
+            model.setValue(content)
+          }
+        }
       } catch {
         setSaveStatus('error')
         setTimeout(() => setSaveStatus('idle'), 3000)
@@ -128,6 +178,7 @@ export default function MonacoEditorPanel({ sandboxId }: MonacoEditorPanelProps)
   function handleEditorDidMount(editorInstance: editor.IStandaloneCodeEditor, monaco: Monaco) {
     editorRef.current = editorInstance
     monacoRef.current = monaco
+    setMonacoReady(true)
 
     // Ctrl+S / Cmd+S to save
     editorInstance.addCommand(
@@ -215,4 +266,17 @@ function activeSandboxOrFile(
   openFiles: string[],
 ) {
   return sandboxId && activeFile && openFiles.includes(activeFile)
+}
+
+function flattenTree(nodes: FileNode[]): string[] {
+  const result: string[] = []
+  for (const node of nodes) {
+    if (node.type === 'file' && /\.(tsx?|jsx?)$/.test(node.path)) {
+      result.push(node.path)
+    }
+    if (node.children) {
+      result.push(...flattenTree(node.children))
+    }
+  }
+  return result
 }
