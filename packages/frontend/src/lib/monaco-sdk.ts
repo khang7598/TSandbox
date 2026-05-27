@@ -154,6 +154,12 @@ export function configureMonaco(monaco: Monaco): void {
     esModuleInterop: true,
   })
 
+  // Suppress "Cannot find module" (2307) — relative imports resolve at runtime
+  // via esbuild but Monaco's virtual FS doesn't have all sandbox files loaded.
+  monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+    diagnosticCodesToIgnore: [2307],
+  })
+
   monaco.languages.typescript.typescriptDefaults.addExtraLib(
     SDK_DTS,
     'file:///node_modules/@tsandbox/sdk/index.d.ts',
