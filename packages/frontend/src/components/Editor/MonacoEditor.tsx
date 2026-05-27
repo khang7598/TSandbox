@@ -69,6 +69,9 @@ export default function MonacoEditorPanel({ sandboxId }: MonacoEditorPanelProps)
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null)
   const monacoRef = useRef<Monaco | null>(null)
 
+  const pendingNavigation = useAppStore((s) => s.pendingNavigation)
+  const setPendingNavigation = useAppStore((s) => s.setPendingNavigation)
+
   const { data: fileContent } = useFileContent(sandboxId, activeFile)
   const { data: compileErrors } = useCompileErrors(sandboxId)
   const saveFile = useSaveFile()
@@ -105,6 +108,16 @@ export default function MonacoEditorPanel({ sandboxId }: MonacoEditorPanelProps)
       monaco.editor.setModelMarkers(model, 'compile-errors', markers)
     }
   }, [compileErrors, activeFile])
+
+  // Navigate to a specific line when a search result is clicked
+  useEffect(() => {
+    if (!pendingNavigation || pendingNavigation.file !== activeFile || !editorRef.current || !localContent) return
+    const { line } = pendingNavigation
+    editorRef.current.revealLineInCenter(line)
+    editorRef.current.setPosition({ lineNumber: line, column: 1 })
+    editorRef.current.focus()
+    setPendingNavigation(null)
+  }, [pendingNavigation, activeFile, localContent, setPendingNavigation])
 
   // Load all sandbox TS/JS files as background Monaco models so relative
   // imports resolve (e.g. `import { users } from './data'`).

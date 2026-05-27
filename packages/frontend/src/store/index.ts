@@ -21,6 +21,12 @@ interface AppStore {
 
   wsConnected: boolean
   setWsConnected: (connected: boolean) => void
+
+  searchOpen: boolean
+  setSearchOpen: (open: boolean) => void
+
+  pendingNavigation: { file: string; line: number } | null
+  setPendingNavigation: (nav: { file: string; line: number } | null) => void
 }
 
 export const useAppStore = create<AppStore>((set) => ({
@@ -69,4 +75,10 @@ export const useAppStore = create<AppStore>((set) => ({
 
   wsConnected: false,
   setWsConnected: (connected) => set({ wsConnected: connected }),
+
+  searchOpen: false,
+  setSearchOpen: (open) => set({ searchOpen: open }),
+
+  pendingNavigation: null,
+  setPendingNavigation: (nav) => set({ pendingNavigation: nav }),
 }))

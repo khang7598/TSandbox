@@ -13,6 +13,7 @@ import RequestHistory from '@/components/RequestHistory/RequestHistory'
 import RuntimeLogs from '@/components/RuntimeLogs/RuntimeLogs'
 import StateInspector from '@/components/StateInspector/StateInspector'
 import StatusBar from '@/components/Layout/StatusBar'
+import SearchPanel from '@/components/Search/SearchPanel'
 
 type RightTab = 'explorer' | 'history' | 'logs' | 'state'
 
@@ -81,9 +82,22 @@ export default function App() {
   const [rightTab, setRightTab] = useState<RightTab>('explorer')
   const activeSandboxId = useAppStore((s) => s.activeSandboxId)
   const logs = useAppStore((s) => s.runtimeLogs)
+  const setSearchOpen = useAppStore((s) => s.setSearchOpen)
 
   // Initialize WebSocket connection
   useWebSocket()
+
+  // Global search shortcut: Ctrl+Shift+F / Cmd+Shift+F
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'F') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [setSearchOpen])
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-900 overflow-hidden">
@@ -154,6 +168,9 @@ export default function App() {
 
       {/* Notifications */}
       <Notifications />
+
+      {/* Search overlay */}
+      <SearchPanel sandboxId={activeSandboxId} />
     </div>
   )
 }

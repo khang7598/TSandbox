@@ -8,6 +8,7 @@ import {
   File,
   Plus,
   FileJson,
+  Search,
   Trash2,
   Pencil,
 } from 'lucide-react'
@@ -272,6 +273,7 @@ export default function FileTree({ nodes, sandboxId }: FileTreeProps) {
   const [newFileOpen, setNewFileOpen] = useState(false)
   const [importOpen, setImportOpen] = useState(false)
   const openFile = useAppStore((s) => s.openFile)
+  const setSearchOpen = useAppStore((s) => s.setSearchOpen)
   const saveFile = useSaveFile()
   const addNotification = useAppStore((s) => s.addNotification)
 
@@ -298,6 +300,9 @@ export default function FileTree({ nodes, sandboxId }: FileTreeProps) {
       <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-700">
         <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Files</span>
         <div className="flex items-center gap-0.5">
+          <Button variant="ghost" size="sm" onClick={() => setSearchOpen(true)} className="p-1" title="Search files (⌘⇧F)">
+            <Search size={13} />
+          </Button>
           <Button variant="ghost" size="sm" onClick={() => setImportOpen(true)} className="p-1" title="Import OpenAPI spec">
             <FileJson size={13} />
           </Button>
