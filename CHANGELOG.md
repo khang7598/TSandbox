@@ -11,6 +11,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
 
+## [1.3.0] - 2026-05-28
+
+> Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
+
+### Added
+- Request/event logging system — every incoming request is now tracked with IP, user-agent, source client (Postman, curl, Browser, Python, …), matched endpoint, and duration
+- Append-only NDJSON log files per sandbox at `LOG_DIR/{sandboxId}/{date}.ndjson` — Docker-volume-mountable, greppable, compatible with log shippers
+- Daily log retention cleanup — files older than `LOG_RETENTION_DAYS` (default 30) are automatically deleted on startup and once per day
+- `GET /_api/sandboxes/:id/stats` — aggregate endpoint returning totals, error rates (2xx/4xx/5xx), average duration, top endpoints, and top client sources
+- Filter params on `GET /_api/sandboxes/:id/history` — `status=2xx|3xx|4xx|5xx`, `method=GET|POST|…`, `q=keyword`
+- Live history via WebSocket — `request_logged` event replaces 3 s polling; new requests appear instantly in the UI
+- Enhanced History tab — stats bar, filter bar, source icons, IP/UA in expanded view, source breakdown footer, live indicator
+
+### Changed
+- Status bar version link — `TSandbox vX.Y.Z` is now a clickable link to the GitHub releases page
+
+### Environment variables added
+| Variable | Default | Description |
+|---|---|---|
+| `LOG_DIR` | `~/.tsandbox/logs` | Root directory for per-sandbox NDJSON log files |
+| `LOG_RETENTION_DAYS` | `30` | Days to retain log files before deletion |
+
+---
+
 ## [1.2.0] - 2026-05-27
 
 > Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
@@ -84,7 +108,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Path traversal protection on all file operations (`safePath()`)
 - ZIP path traversal protection on sandbox import
 
-[Unreleased]: https://github.com/khang7598/TSandbox/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/khang7598/TSandbox/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/khang7598/TSandbox/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/khang7598/TSandbox/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/khang7598/TSandbox/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/khang7598/TSandbox/releases/tag/v1.0.0

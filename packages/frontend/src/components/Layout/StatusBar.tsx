@@ -44,7 +44,14 @@ export default function StatusBar() {
         </div>
 
         {/* Brand */}
-        <span className="text-slate-600">TSandbox v0.1</span>
+        <a
+          href="https://github.com/khang7598/TSandbox/releases"
+          target="_blank"
+          rel="noreferrer"
+          className="text-slate-600 hover:text-slate-400 transition-colors"
+        >
+          TSandbox v1.3.0
+        </a>
       </div>
     </div>
   )
