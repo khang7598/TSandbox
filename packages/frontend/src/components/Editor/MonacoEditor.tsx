@@ -5,6 +5,7 @@ import { X, Save, AlertCircle } from 'lucide-react'
 import clsx from 'clsx'
 import { useFileContent, useSaveFile, useCompileErrors } from '@/api/mocks'
 import { useAppStore } from '@/store'
+import { configureMonaco } from '@/lib/monaco-sdk'
 
 interface EditorTabsProps {
   openFiles: string[]
@@ -167,7 +168,9 @@ export default function MonacoEditorPanel({ sandboxId }: MonacoEditorPanelProps)
           key={activeFile}
           language={language}
           value={localContent}
+          path={activeFile ? `file:///${activeFile}` : undefined}
           onChange={handleChange}
+          beforeMount={configureMonaco}
           onMount={handleEditorDidMount}
           theme="vs-dark"
           options={{
