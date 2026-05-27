@@ -73,6 +73,11 @@ export default function MonacoEditorPanel({ sandboxId }: MonacoEditorPanelProps)
   const { data: compileErrors } = useCompileErrors(sandboxId)
   const saveFile = useSaveFile()
 
+  // Reset so background model load re-runs for the new sandbox
+  useEffect(() => {
+    setMonacoReady(false)
+  }, [sandboxId])
+
   // When file content loads, update local content
   useEffect(() => {
     if (fileContent !== undefined) {
@@ -116,15 +121,21 @@ export default function MonacoEditorPanel({ sandboxId }: MonacoEditorPanelProps)
 
         for (const filePath of filePaths) {
           if (cancelled) return
-          const uri = monaco.Uri.parse(`file:///${filePath}`)
-          if (monaco.editor.getModel(uri)) continue
           try {
             const contentRes = await client.get<{ path: string; content: string }>(
               `/sandboxes/${sandboxId}/files/${filePath}`,
             )
             if (cancelled) return
+            const content = contentRes.data.content
             const lang = /\.tsx?$/.test(filePath) ? 'typescript' : 'javascript'
-            monaco.editor.createModel(contentRes.data.content, lang, uri)
+            const uri = monaco.Uri.parse(`file:///${filePath}`)
+            const existing = monaco.editor.getModel(uri)
+            if (existing) {
+              // Update stale content (e.g. after sandbox switch)
+              if (existing.getValue() !== content) existing.setValue(content)
+            } else {
+              monaco.editor.createModel(content, lang, uri)
+            }
           } catch {
             // ignore individual file errors
           }
