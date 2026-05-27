@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
 
+## [1.1.0] - 2026-05-27
+
+> Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
+
 ### Added
 - `docs/GUIDE.md` — full SDK and mock-writing reference extracted from README
 - `docs/ARCHITECTURE.md` — deep-dive study guide covering all subsystems
@@ -60,5 +64,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Path traversal protection on all file operations (`safePath()`)
 - ZIP path traversal protection on sandbox import
 
-[Unreleased]: https://github.com/khang7598/TSandbox/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/khang7598/TSandbox/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/khang7598/TSandbox/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/khang7598/TSandbox/releases/tag/v1.0.0
