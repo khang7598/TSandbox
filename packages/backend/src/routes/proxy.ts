@@ -7,6 +7,8 @@
  */
 
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import { existsSync, statSync } from 'node:fs'
+import { join } from 'node:path'
 import { registry } from '../registry/index.js'
 import { executeHandler } from '../runtime/sandbox.js'
 import { db, queries } from '../db/index.js'
@@ -14,7 +16,12 @@ import { broadcast } from '../ws/index.js'
 import { config } from '../config.js'
 import crypto from 'node:crypto'
 
-export async function proxyPlugin(app: FastifyInstance): Promise<void> {
+interface ProxyOptions {
+  publicDir?: string
+}
+
+export async function proxyPlugin(app: FastifyInstance, opts: ProxyOptions): Promise<void> {
+  const { publicDir } = opts
   // Register a catch-all for the standard HTTP methods.
   // OPTIONS is intentionally excluded — @fastify/cors handles it.
   app.route({
@@ -53,6 +60,17 @@ export async function proxyPlugin(app: FastifyInstance): Promise<void> {
     )
 
     if (!match) {
+      // Frontend static file serving — only for plain GET requests that are
+      // not explicitly targeting a sandbox (prefix or header). This lets the
+      // React SPA load in Docker without a separate web server.
+      const isSandboxTargeted = !!sandboxPrefixMatch || !!request.headers['x-sandbox-id']
+      if (method === 'GET' && !isSandboxTargeted && publicDir) {
+        const relPath = pathname === '/' ? 'index.html' : pathname.slice(1)
+        const candidate = join(publicDir, relPath)
+        const isFile = existsSync(candidate) && statSync(candidate).isFile()
+        return reply.sendFile(isFile ? relPath : 'index.html')
+      }
+
       const notFoundResponse = {
         error: 'No mock found',
         method,

@@ -13,21 +13,21 @@ COPY packages/sdk/package.json        packages/sdk/
 COPY packages/backend/package.json    packages/backend/
 COPY packages/frontend/package.json   packages/frontend/
 RUN pnpm install --frozen-lockfile
-
 COPY . .
 RUN pnpm build
+# Prune to production-only deps — strips devDeps (typescript, vite, tsx, etc.)
+RUN pnpm --filter @tsandbox/backend deploy --prod /prod
 
 # ── Runtime stage ────────────────────────────────────────────────────
 FROM node:22-slim
-RUN npm i -g pnpm
 WORKDIR /app
 
-COPY --from=builder /app/packages/backend/dist        packages/backend/dist
-COPY --from=builder /app/packages/backend/package.json packages/backend/
-COPY --from=builder /app/packages/frontend/dist       packages/frontend/dist
-COPY --from=builder /app/node_modules                 node_modules
-COPY --from=builder /app/packages/backend/node_modules packages/backend/node_modules
-COPY package.json ./
+# Production deps only (no pnpm needed at runtime)
+COPY --from=builder /prod/node_modules          ./node_modules
+# Compiled backend
+COPY --from=builder /app/packages/backend/dist  ./dist
+# Frontend static files — served by Fastify at /
+COPY --from=builder /app/packages/frontend/dist ./public
 
 EXPOSE 3001
 VOLUME ["/data"]
@@ -37,4 +37,4 @@ ENV PORT=3001
 ENV DB_PATH=/data/tsandbox.db
 ENV SANDBOXES_DIR=/data/sandboxes
 
-CMD ["node", "packages/backend/dist/index.js"]
+CMD ["node", "dist/index.js"]

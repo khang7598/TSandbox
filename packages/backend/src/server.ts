@@ -2,10 +2,19 @@ import Fastify from 'fastify'
 import fastifyCors from '@fastify/cors'
 import fastifyWebSocket from '@fastify/websocket'
 import fastifyMultipart from '@fastify/multipart'
+import fastifyStatic from '@fastify/static'
+import { existsSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { config } from './config.js'
 import { managementPlugin } from './routes/management.js'
 import { proxyPlugin } from './routes/proxy.js'
 import { addClient } from './ws/index.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+// In Docker the frontend dist is copied to /app/public (one level up from /app/dist)
+const publicDir = resolve(__dirname, '../public')
+const hasPublicDir = existsSync(publicDir)
 
 export async function buildServer() {
   const app = Fastify({
@@ -37,6 +46,18 @@ export async function buildServer() {
   await app.register(fastifyWebSocket)
   await app.register(fastifyMultipart)
 
+  // ── Frontend static files (production Docker only) ─────────────────────────
+  // wildcard: false — decorates reply.sendFile() without registering a GET /*
+  // route that would conflict with the mock proxy catch-all.
+  if (hasPublicDir) {
+    await app.register(fastifyStatic, {
+      root: publicDir,
+      prefix: '/',
+      wildcard: false,
+      decorateReply: true,
+    })
+  }
+
   // ── WebSocket endpoint ────────────────────────────────────────────────────────
 
   app.get('/_ws', { websocket: true }, (connection) => {
@@ -59,7 +80,7 @@ export async function buildServer() {
 
   // ── Mock proxy (catch-all – must be last) ─────────────────────────────────────
 
-  await app.register(proxyPlugin)
+  await app.register(proxyPlugin, { publicDir: hasPublicDir ? publicDir : undefined })
 
   return app
 }
