@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
 
+### Fixed
+- Shared file hot-reload cascade — editing a helper/data file (e.g. `data.ts`) now automatically recompiles all mock files in the same sandbox that import it, so changes take effect immediately without needing to also touch the mock file
+- API Explorer state preserved across tab switches — method, path, headers, body, and last response are no longer lost when switching to History, Logs, or State and back
+
 ## [1.3.0] - 2026-05-28
 
 > Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
