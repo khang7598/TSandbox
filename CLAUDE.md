@@ -68,9 +68,14 @@ File write (editor UI or disk)
   → chokidar detects change (watcher.ts)
     → debounce (default 200ms)
       → esbuild compiles TS → CJS bundle  (compiler.ts)
-        → on success: registry.register() atomically replaces handler
-          → ivm Script cache invalidated   (sandbox.ts)
-            → WebSocket broadcast `route_updated`
+        → on success:
+            if file has defineMock:
+              registry.register() atomically replaces handler
+              ivm Script cache invalidated (sandbox.ts)
+              WebSocket broadcast `route_updated`
+            else (shared/helper file):
+              registry.listForSandbox() → recompile every registered mock
+              (cascade uses registry file paths directly — no fs scan)
         → on failure: broadcast `compile_error`, keep old handler alive
 ```
 
@@ -93,8 +98,8 @@ File write (editor UI or disk)
 ### Compiler (`runtime/compiler.ts`)
 
 - `esbuild.build()` with `bundle: true`, `format: 'cjs'`, `platform: 'neutral'`
-- `@tsandbox/sdk` imports intercepted by an esbuild plugin and replaced with an inline shim so the SDK works inside isolated-vm without Node.js
-- The `SDK_SHIM` constant is prepended to every compiled bundle
+- `@tsandbox/sdk` is marked `external` — esbuild leaves `require('@tsandbox/sdk')` in the output
+- At execution time, `sandbox.ts`'s CJS shim intercepts that `require()` and returns the inline SDK object; no Node.js module resolution involved
 
 ### SDK (`packages/sdk`)
 
@@ -119,6 +124,7 @@ Single `/_ws` endpoint. Server pushes events to all connected clients. Message t
 - `compile_error` — displays inline errors in Monaco
 - `runtime_logs` — console output from sandbox handlers
 - `runtime_error` — uncaught handler exceptions
+- `request_logged` — fired after every request; replaces polling for the History tab
 
 ### Management API (`routes/management.ts`)
 
@@ -141,6 +147,8 @@ VSCode-inspired 3-panel layout:
 - **Right**: API Explorer / Request History / Runtime Logs / State Inspector
 
 State: Zustand store for UI state (active sandbox, open files, logs, notifications). Server state: React Query (TanStack Query v5).
+
+All four right-panel tabs are always mounted (hidden via CSS when inactive) so API Explorer preserves method, path, headers, body, and last response across tab switches.
 
 ## Docker / Production Layout
 
@@ -169,6 +177,8 @@ Two manual GitHub Actions workflows (`.github/workflows/`):
 | `SANDBOX_TIMEOUT_MS` | `10000` | Max handler execution time |
 | `HOT_RELOAD_DEBOUNCE_MS` | `200` | File-change debounce |
 | `CORS_ORIGINS` | `http://localhost:5173,...` | Allowed CORS origins |
+| `LOG_DIR` | `~/.tsandbox/logs` | Root dir for per-sandbox NDJSON request log files |
+| `LOG_RETENTION_DAYS` | `30` | Days to retain log files before deletion |
 
 ## Security Model
 
