@@ -13,10 +13,7 @@ TSandbox fixes all of that. Write your mock API as TypeScript code — it hot-re
 
 > Mock APIs as code, not static JSON.
 
-![TSandbox UI](./docs/screenshot.png)
-
-<!-- TODO: Replace with a GIF showing: create sandbox → write handler → hot-reload in browser → request in History tab (aim for ~15 seconds, record at 1280×800) -->
-> **Demo GIF coming soon** — will show hot-reload in action from edit to live response in under a second.
+![TSandbox Demo](./docs/Demo.gif)
 
 ---
 
