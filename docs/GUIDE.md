@@ -371,3 +371,13 @@ The **State** tab shows the current value of `state` for the active sandbox in r
 | Delete a folder | Right-click folder → **Delete folder** |
 | Rename a file or folder | Right-click → **Rename**, or press **F2** |
 | Delete a sandbox | Hover sandbox name → trash icon |
+
+---
+
+## Tips
+
+- **`logger` not `console.log`** — output goes to the Runtime Logs panel, visible to your team
+- **State survives hot reload** — edit a handler mid-test without losing accumulated state
+- **`?__status=<code>` on any request** — triggers error branches in OpenAPI-imported handlers
+- **F2 to rename** — works on files and folders in the sidebar
+- **History tab** — every request records full headers, body, timing, and response
