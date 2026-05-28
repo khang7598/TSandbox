@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 > Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
 
+---
+
+## [1.4.0] - 2026-05-28
+
+> Docs: [README](./README.md) · [Writing Mocks](./docs/GUIDE.md) · [Deployment](./DEPLOYMENT.md)
+
 ### Fixed
 - Shared file hot-reload cascade — editing a helper/data file (e.g. `data.ts`) now automatically recompiles all mock files in the same sandbox that import it, so changes take effect immediately without needing to also touch the mock file. Cascade now uses registry file paths directly instead of a filesystem scan, eliminating path-normalisation mismatches that caused the first attempt to silently fail
 - API Explorer state preserved across tab switches — method, path, headers, body, and last response are no longer lost when switching to History, Logs, or State and back
@@ -112,7 +118,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Path traversal protection on all file operations (`safePath()`)
 - ZIP path traversal protection on sandbox import
 
-[Unreleased]: https://github.com/khang7598/TSandbox/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/khang7598/TSandbox/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/khang7598/TSandbox/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/khang7598/TSandbox/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/khang7598/TSandbox/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/khang7598/TSandbox/compare/v1.0.0...v1.1.0

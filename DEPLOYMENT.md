@@ -47,7 +47,7 @@ To pin to a specific release instead of `latest`:
 image: ghcr.io/khang7598/tsandbox:1.0.0
 ```
 
-Available tags: `latest`, `1.3.0`, `1.2.0`, … — see all at [ghcr.io/khang7598/tsandbox](https://github.com/khang7598/TSandbox/pkgs/container/tsandbox).
+Available tags: `latest`, `1.4.0`, `1.3.0`, … — see all at [ghcr.io/khang7598/tsandbox](https://github.com/khang7598/TSandbox/pkgs/container/tsandbox).
 
 ---
 

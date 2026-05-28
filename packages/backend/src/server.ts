@@ -70,7 +70,7 @@ export async function buildServer() {
 
   app.get('/_api/health', async () => ({
     status: 'ok',
-    version: '1.3.0',
+    version: '1.4.0',
     uptime: process.uptime(),
   }))
 

@@ -153,12 +153,12 @@ docker run -d \
   --restart unless-stopped \
   -p 3001:3001 \
   -v tsandbox_data:/data \
-  ghcr.io/khang7598/tsandbox:1.3.0
+  ghcr.io/khang7598/tsandbox:1.4.0
 ```
 
 That's one command. No config files, no database setup, no dependencies to install. Open **http://localhost:3001** and start hitting your mock APIs.
 
-Pin to a specific version tag (e.g. `1.3.0`) in CI — never get surprised by a breaking change.
+Pin to a specific version tag (e.g. `1.4.0`) in CI — never get surprised by a breaking change.
 
 See [DEPLOYMENT.md](./DEPLOYMENT.md) for Docker Compose, nginx, persistent storage, env vars, and upgrade paths.
 
