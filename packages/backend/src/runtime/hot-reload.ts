@@ -24,6 +24,7 @@ import { registry } from '../registry/index.js'
 import { invalidateCache } from './sandbox.js'
 import { broadcast } from '../ws/index.js'
 import { db } from '../db/index.js'
+import { config } from '../config.js'
 import crypto from 'node:crypto'
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -76,10 +77,12 @@ async function handleAddOrChange(filePath: string, sandboxId: string): Promise<H
   // Clear any previous compile error
   db.prepare('DELETE FROM compile_errors WHERE route_id = ?').run(routeId)
 
-  // Skip files that aren't mock definitions (e.g. shared data/helper files).
-  // A mock file must call defineMock() — without it there's no route to register.
+  // Shared helper/data files don't define routes themselves but are bundled into
+  // mock files that import them. Recompile all mock files in the sandbox so they
+  // pick up the new content.
   if (!outcome.source.includes('defineMock')) {
-    console.log(`[hot-reload] skipping non-mock file ${path.basename(filePath)} (no defineMock)`)
+    console.log(`[hot-reload] shared file changed: ${path.basename(filePath)} — cascading to sandbox mocks`)
+    await reprocessSandboxMocks(sandboxId, filePath)
     return { ok: true, filePath, sandboxId, routeId }
   }
 
@@ -215,6 +218,39 @@ export function startWatcher(sandboxesDir: string): void {
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Recompile all mock files in the sandbox when a shared/helper file changes.
+ * Shared files (no defineMock) are bundled into mock files by esbuild, so
+ * dependents must be recompiled to pick up the new content.
+ */
+async function reprocessSandboxMocks(sandboxId: string, changedFilePath: string): Promise<void> {
+  const sandboxDir = path.join(config.sandboxesDir, sandboxId)
+  let entries: Dirent[]
+  try {
+    entries = await fs.readdir(sandboxDir, { withFileTypes: true, recursive: true } as Parameters<typeof fs.readdir>[1]) as unknown as Dirent[]
+  } catch {
+    return
+  }
+
+  for (const entry of entries) {
+    if (!entry.isFile()) continue
+    if (!/\.(ts|js|tsx)$/.test(entry.name)) continue
+
+    const parentPath = (entry as unknown as { parentPath?: string; path?: string }).parentPath
+      ?? (entry as unknown as { parentPath?: string; path?: string }).path
+      ?? sandboxDir
+    const fp = path.join(parentPath, entry.name)
+
+    if (fp === changedFilePath) continue
+
+    const src = await fs.readFile(fp, 'utf8').catch(() => null)
+    if (!src?.includes('defineMock')) continue
+
+    console.log(`[hot-reload] cascade: recompiling ${path.basename(fp)}`)
+    await handleAddOrChange(fp, sandboxId)
+  }
+}
 
 function filePathToRouteId(filePath: string): string {
   return crypto.createHash('sha256').update(filePath).digest('hex').slice(0, 16)

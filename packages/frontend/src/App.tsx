@@ -151,12 +151,12 @@ export default function App() {
                 ))}
               </div>
 
-              {/* Tab content */}
-              <div className="flex-1 min-h-0">
-                {rightTab === 'explorer' && <APIExplorer sandboxId={activeSandboxId} />}
-                {rightTab === 'history' && <RequestHistory sandboxId={activeSandboxId} />}
-                {rightTab === 'logs' && <RuntimeLogs />}
-                {rightTab === 'state' && <StateInspector sandboxId={activeSandboxId} />}
+              {/* Tab content — always mounted to preserve state, hidden via CSS when inactive */}
+              <div className="flex-1 min-h-0 relative">
+                <div className={rightTab === 'explorer' ? 'h-full' : 'hidden'}><APIExplorer sandboxId={activeSandboxId} /></div>
+                <div className={rightTab === 'history' ? 'h-full' : 'hidden'}><RequestHistory sandboxId={activeSandboxId} /></div>
+                <div className={rightTab === 'logs' ? 'h-full' : 'hidden'}><RuntimeLogs /></div>
+                <div className={rightTab === 'state' ? 'h-full' : 'hidden'}><StateInspector sandboxId={activeSandboxId} /></div>
               </div>
             </div>
           </Panel>
